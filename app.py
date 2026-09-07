@@ -8,16 +8,13 @@ from pathlib import Path
 
 import oracledb
 import pandas as pd
-import tkinter as tk
 from dotenv import load_dotenv
-from tkinter import filedialog, messagebox
 
 load_dotenv()
 
 ORACLE_USER = os.getenv("ORACLE_USER")
 ORACLE_PASSWORD = os.getenv("ORACLE_PASSWORD")
 ORACLE_DSN = os.getenv("ORACLE_DSN")
-
 PASTA_MONITORADA = Path(os.getenv("SQL_WATCH_DIR", "./scripts"))
 MONITOR_INTERVAL = int(os.getenv("SQL_MONITOR_INTERVAL", "5"))
 monitorando = False
@@ -25,15 +22,11 @@ thread_monitoramento = None
 
 
 def validar_configuracao():
-    """Garante que as credenciais Oracle foram fornecidas pelo ambiente."""
-    missing = [
-        name for name, value in {
-            "ORACLE_USER": ORACLE_USER,
-            "ORACLE_PASSWORD": ORACLE_PASSWORD,
-            "ORACLE_DSN": ORACLE_DSN,
-        }.items()
-        if not value
-    ]
+    missing = [name for name, value in {
+        "ORACLE_USER": ORACLE_USER,
+        "ORACLE_PASSWORD": ORACLE_PASSWORD,
+        "ORACLE_DSN": ORACLE_DSN,
+    }.items() if not value]
     if missing:
         raise RuntimeError(f"Configuração ausente: {', '.join(missing)}")
 
@@ -43,8 +36,7 @@ def criar_pasta_scripts():
 
 
 def extrair_query_do_arquivo(caminho_arquivo):
-    encodings = ["utf-8", "latin-1", "iso-8859-1", "cp1252"]
-    for encoding in encodings:
+    for encoding in ("utf-8", "cp1252", "latin-1"):
         try:
             return Path(caminho_arquivo).read_text(encoding=encoding).strip()
         except UnicodeDecodeError:
@@ -79,25 +71,18 @@ def executar_query(query, nome_arquivo, caminho_script):
     if not query or not query.strip():
         messagebox.showerror("Erro", "Query vazia ou inválida.")
         return False
-
     try:
         validar_configuracao()
-        with oracledb.connect(
-            user=ORACLE_USER,
-            password=ORACLE_PASSWORD,
-            dsn=ORACLE_DSN,
-        ) as conexao:
+        with oracledb.connect(user=ORACLE_USER, password=ORACLE_PASSWORD, dsn=ORACLE_DSN) as conexao:
             with conexao.cursor() as cursor:
                 cursor.execute("ALTER SESSION SET NLS_DATE_FORMAT = 'DD/MM/YYYY'")
                 if not executar_query_direct(cursor, query):
                     return False
                 columns = [col[0] for col in cursor.description]
                 data = cursor.fetchall()
-
         if not data:
             messagebox.showinfo("Info", "A query não retornou resultados.")
             return apagar_arquivo_script(caminho_script)
-
         df = pd.DataFrame(data, columns=columns)
         caminho_arquivo = filedialog.asksaveasfilename(
             defaultextension=".csv",
@@ -106,20 +91,9 @@ def executar_query(query, nome_arquivo, caminho_script):
         )
         if not caminho_arquivo:
             return False
-
-        df.to_csv(
-            caminho_arquivo,
-            sep=";",
-            index=False,
-            encoding="utf-8-sig",
-            quoting=csv.QUOTE_MINIMAL,
-        )
+        df.to_csv(caminho_arquivo, sep=";", index=False, encoding="utf-8-sig", quoting=csv.QUOTE_MINIMAL)
         apagado = apagar_arquivo_script(caminho_script)
-        messagebox.showinfo(
-            "Sucesso",
-            f"Arquivo salvo com sucesso!\nLinhas: {len(df)}\n"
-            + ("Script original apagado." if apagado else "Erro ao apagar script."),
-        )
+        messagebox.showinfo("Sucesso", f"Arquivo salvo com sucesso!\nLinhas: {len(df)}\n" + ("Script original apagado." if apagado else "Erro ao apagar script."))
         return True
     except oracledb.DatabaseError as exc:
         error_obj = exc.args[0]
@@ -225,25 +199,31 @@ def log_mensagem(mensagem):
     log_text.see(tk.END)
 
 
-root = tk.Tk()
-root.title("Monitor de Queries SQL")
-root.geometry("850x550")
-status_var = tk.StringVar(value="Monitoramento parado")
+def iniciar_interface():
+    global root, status_var, log_text, messagebox, filedialog, tk
+    import tkinter as tk
+    from tkinter import filedialog, messagebox
+    root = tk.Tk()
+    root.title("Monitor de Queries SQL")
+    root.geometry("850x550")
+    status_var = tk.StringVar(value="Monitoramento parado")
+    frame = tk.Frame(root)
+    frame.pack(pady=10)
+    for texto, comando in [
+        ("Testar Conexão", testar_conexao),
+        ("Iniciar Monitoramento", iniciar_monitoramento),
+        ("Parar Monitoramento", parar_monitoramento),
+        ("Processar Arquivos", processar_arquivos_txt),
+        ("Abrir Pasta", abrir_pasta),
+        ("Limpar Pasta", limpar_pasta),
+    ]:
+        tk.Button(frame, text=texto, command=comando).pack(side=tk.LEFT, padx=4)
+    tk.Label(root, textvariable=status_var).pack(pady=5)
+    log_text = tk.Text(root, height=25, width=100)
+    log_text.pack(padx=10, pady=10)
+    criar_pasta_scripts()
+    root.mainloop()
 
-frame = tk.Frame(root)
-frame.pack(pady=10)
-for texto, comando in [
-    ("Testar Conexão", testar_conexao),
-    ("Iniciar Monitoramento", iniciar_monitoramento),
-    ("Parar Monitoramento", parar_monitoramento),
-    ("Processar Arquivos", processar_arquivos_txt),
-    ("Abrir Pasta", abrir_pasta),
-    ("Limpar Pasta", limpar_pasta),
-]:
-    tk.Button(frame, text=texto, command=comando).pack(side=tk.LEFT, padx=4)
 
-tk.Label(root, textvariable=status_var).pack(pady=5)
-log_text = tk.Text(root, height=25, width=100)
-log_text.pack(padx=10, pady=10)
-criar_pasta_scripts()
-root.mainloop()
+if __name__ == "__main__":
+    iniciar_interface()
