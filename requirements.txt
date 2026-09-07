@@ -1,3 +1,4 @@
 oracledb
 pandas
 chardet
+python-dotenv
