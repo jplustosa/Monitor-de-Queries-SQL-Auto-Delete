@@ -1,8 +1,12 @@
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+sys.path.insert(0, str(ROOT))
 
 
 def test_environment_template_exists():
-    env_example = Path(__file__).parents[1] / ".env.example"
+    env_example = ROOT / ".env.example"
     content = env_example.read_text(encoding="utf-8")
 
     assert "ORACLE_USER=" in content
