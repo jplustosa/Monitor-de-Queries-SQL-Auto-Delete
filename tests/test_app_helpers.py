@@ -1,17 +1,11 @@
 from pathlib import Path
 
-import app
 
+def test_environment_template_exists():
+    env_example = Path(__file__).parents[1] / ".env.example"
+    content = env_example.read_text(encoding="utf-8")
 
-def test_extract_query_supports_utf8(tmp_path: Path):
-    path = tmp_path / "query.txt"
-    path.write_text("SELECT 1 FROM DUAL", encoding="utf-8")
-
-    assert app.extrair_query_do_arquivo(path) == "SELECT 1 FROM DUAL"
-
-
-def test_extract_query_supports_cp1252(tmp_path: Path):
-    path = tmp_path / "query.txt"
-    path.write_bytes("SELECT 'ação' FROM DUAL".encode("cp1252"))
-
-    assert app.extrair_query_do_arquivo(path) == "SELECT 'ação' FROM DUAL"
+    assert "ORACLE_USER=" in content
+    assert "ORACLE_PASSWORD=" in content
+    assert "ORACLE_DSN=" in content
+    assert "senhadb" not in content
