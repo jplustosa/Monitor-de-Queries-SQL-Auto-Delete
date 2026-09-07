@@ -1,132 +1,113 @@
-# Monitor de Queries SQL - Auto Delete
+# SQL Query Monitor & Auto-Delete
 
-Sistema automatizado para executar queries SQL a partir de arquivos de texto e exportar os resultados para CSV, com remoção automática dos scripts após execução bem-sucedida.
+> Python automation for controlled Oracle SQL processing, CSV export and operational file management.
 
-## 📋 Funcionalidades
+**Python · Oracle · oracledb · Pandas · Logging · Automation**
 
-- **Monitoramento Automático**: Observa a pasta `./scripts/` por novos arquivos
-- **Execução de Queries**: Executa queries SQL diretamente no banco Oracle
-- **Exportação para CSV**: Salva resultados em arquivos CSV com encoding UTF-8
-- **Auto Delete**: Remove automaticamente os scripts após execução bem-sucedida
-- **Interface Gráfica**: Interface intuitiva com log de atividades
-- **Multi-encoding**: Suporte a diferentes codificações de arquivo
+## Problem
 
-## 🚀 Como Usar
+Operational teams often receive SQL scripts as files that must be executed, validated and returned as structured output. Manual processing increases repetitive work and makes failures harder to track.
 
-### 1. Pré-requisitos
+This project automates that workflow while preserving failed scripts for investigation.
+
+## Workflow
+
+```text
+SQL file (.txt)
+      ↓
+File detection
+      ↓
+Encoding detection
+      ↓
+Oracle execution
+      ↓
+CSV export
+      ↓
+Success? ───── No ───→ Keep script + log error
+   |
+  Yes
+   ↓
+Delete processed script
+   ↓
+Record operation
+```
+
+## Features
+
+- Automatic monitoring of `./scripts/`.
+- Oracle SQL execution.
+- CSV result export.
+- Multiple text encodings.
+- Automatic deletion only after successful processing.
+- Connection testing.
+- Processing and monitoring controls.
+- Operational logging.
+- Failed scripts retained for troubleshooting.
+
+## Security
+
+**Do not place Oracle credentials directly in source code.**
+
+Use environment variables or a local `.env` file excluded by `.gitignore`:
+
+```text
+ORACLE_USER=...
+ORACLE_PASSWORD=...
+ORACLE_DSN=...
+```
+
+If credentials were ever committed to a repository, rotate them and remove them from Git history before treating the repository as clean.
+
+## Quick start
+
+Install the required dependencies:
 
 ```bash
-# Instalar dependências
 pip install oracledb pandas chardet
 ```
 
-### 2. Preparação dos Scripts
-
-Crie a pasta `scripts` (será criada automaticamente) e adicione arquivos `.txt` com suas queries SQL:
-
-**Exemplo de arquivo `minha_query.txt`:**
-```sql
-SELECT 
-    CLIENTE.ID AS CODIGO_CLIENTE,
-    CLIENTE.NOME AS NOME_CLIENTE,
-    CLIENTE.EMAIL,
-    CLIENTE.TELEFONE,
-    TO_CHAR(CLIENTE.DATA_CADASTRO, 'DD/MM/YYYY') AS DATA_CADASTRO,
-    CIDADE.NOME AS CIDADE,
-    ESTADO.UF,...
-```
-
-### 3. Execução do Sistema
+Create a `scripts/` directory and place SQL files using the expected `.txt` format. Then run:
 
 ```bash
 python monitor_queries.py
 ```
 
-### 4. Fluxo de Trabalho
+## Processing rules
 
-1. **Cole arquivos** `.txt` na pasta `./scripts/`
-2. **Inicie o monitoramento** ou processe manualmente
-3. **Escolha onde salvar** o CSV quando solicitado
-4. **O script será apagado** automaticamente após sucesso
+| Result | CSV | Original SQL file |
+| --- | --- | --- |
+| Success with rows | Generated | Deleted |
+| Success without rows | Processed | Deleted |
+| Execution error | Not generated | Preserved |
+| Connection error | Not generated | Preserved |
 
-## 🎯 Comandos da Interface
+Preserving failed inputs is intentional: an operational automation should not destroy evidence needed for troubleshooting.
 
-### Botões Principais
+## Repository structure
 
-- **Testar Conexão**: Verifica conexão com o banco de dados
-- **Iniciar Monitoramento**: Inicia monitoramento automático da pasta
-- **Parar Monitoramento**: Interrompe o monitoramento
-- **Processar Arquivos**: Executa todos os arquivos existentes
-- **Abrir Pasta**: Abre a pasta de scripts no explorador
-- **Limpar Pasta**: Remove todos os arquivos .txt manualmente
-
-### Comportamento de Auto Delete
-
-- ✅ **Sucesso**: CSV salvo → Script .txt apagado
-- ✅ **Sem resultados**: Query executada → Script .txt apagado  
-- ❌ **Erro**: Falha na execução → Script NÃO apagado (para correção)
-
-## ⚙️ Configuração do Banco
-
-Edite as variáveis no script para sua conexão Oracle:
-
-```python
-user = "seu_usuario"
-password = "sua_senha"
-dsn = "sua_string_de_conexao"
+```text
+.
+├── monitor_queries.py
+├── scripts/              # Input SQL files
+├── resultados/           # Generated CSVs
+└── README.md
 ```
 
-## 📁 Estrutura de Arquivos
+## Engineering improvements recommended
 
-```
-projeto/
-├── app.py      # Script principal
-├── scripts/               # Pasta monitorada (auto-criada)
-│   ├── query1.txt         # Arquivos com queries SQL
-│   └── query2.txt
-└── resultados/            # CSVs salvos (local escolhido pelo usuário)
-```
+- Move application code into `src/`.
+- Add unit tests for file detection, encoding and processing rules.
+- Add integration tests using an Oracle test environment.
+- Replace GUI-driven configuration with environment-based configuration where appropriate.
+- Add structured logging.
+- Add retry and timeout policies.
+- Add a dry-run mode.
+- Add metrics/health checks.
+- Containerize the worker where Oracle connectivity permits.
+- Add CI with linting, tests and secret scanning.
 
-## 🔄 Fluxo de Processamento
+## Portfolio case
 
-1. **Detecção**: Sistema detecta novo arquivo `.txt` na pasta
-2. **Leitura**: Lê o conteúdo do arquivo (suporte a múltiplos encodings)
-3. **Execução**: Conecta ao Oracle e executa a query
-4. **Exportação**: Gera arquivo CSV com os resultados
-5. **Limpeza**: Apaga o arquivo `.txt` original
-6. **Log**: Registra todas as atividades no painel
+This project demonstrates a practical automation mindset: **detect → execute → validate → persist output → clean up → audit**.
 
-## 🛠️ Solução de Problemas
-
-### Erros Comuns
-
-1. **Erro de encoding**: 
-   - O sistema tenta automaticamente UTF-8, Latin-1, ISO-8859-1, CP1252
-   - Funciona com a maioria dos arquivos de texto
-
-2. **Erro de conexão**:
-   - Use "Testar Conexão" para verificar configurações
-   - Verifique usuário, senha e DSN
-
-3. **Query não executa**:
-   - Teste a query diretamente no PL/SQL primeiro
-   - Verifique sintaxe SQL
-
-### Log de Atividades
-
-O painel inferior mostra em tempo real:
-- Arquivos detectados
-- Queries executadas
-- Erros encontrados
-- Arquivos apagados
-
-## 📝 Notas Importantes
-
-- **Backup automático**: Os scripts são apagados após uso, mantenha cópias se necessário
-- **Segurança**: As credenciais do banco estão embutidas no código
-- **Performance**: Queries muito grandes podem demorar para processar
-- **Network**: Requer conexão estável com o banco de dados
-
-## 🎉 Pronto para Usar!
-
-Agora basta colocar seus arquivos `.txt` na pasta `scripts` e o sistema fará todo o trabalho automaticamente!
+The important behavior is that automation does not treat every execution as success. Failures remain available for diagnosis, making the process safer for operational use.
